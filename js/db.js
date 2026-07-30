@@ -2,13 +2,14 @@
 // et l'espace Pro. Fonctionne hors-ligne, aucune donnée envoyée à un serveur.
 
 const DB_NAME = "pauseattitude-catalogue-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 const STORES = {
   articles: "articles",
   clients: "clients",
   commandes: "commandes",
   reclamations: "reclamations",
+  tirages: "tirages",
 };
 
 let dbPromise = null;
@@ -33,6 +34,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains(STORES.reclamations)) {
         db.createObjectStore(STORES.reclamations, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(STORES.tirages)) {
+        db.createObjectStore(STORES.tirages, { keyPath: "id" });
       }
     };
 
