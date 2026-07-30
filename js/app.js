@@ -31,19 +31,37 @@ function productCardHTML(product, index) {
   `;
 }
 
-function renderGrid() {
+function observeReveal(elements) {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.12 }
+  );
+  elements.forEach((el) => observer.observe(el));
+}
+
+async function renderGrid() {
   const grid = document.getElementById("product-grid");
-  grid.innerHTML = PRODUCTS.map(productCardHTML).join("");
+  const products = await DB.getAll(DB.STORES.articles);
+  grid.innerHTML = products.map(productCardHTML).join("");
 
   grid.querySelectorAll(".product-card").forEach((card) => {
-    card.addEventListener("click", () => openFiche(card.dataset.id));
+    card.addEventListener("click", () => openFiche(card.dataset.id, products));
     card.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        openFiche(card.dataset.id);
+        openFiche(card.dataset.id, products);
       }
     });
   });
+
+  observeReveal(grid.querySelectorAll(".product-card"));
 }
 
 function renderTicker() {
@@ -114,8 +132,8 @@ function ficheHTML(product) {
   `;
 }
 
-function openFiche(id) {
-  const product = PRODUCTS.find((p) => p.id === id);
+function openFiche(id, products) {
+  const product = products.find((p) => p.id === id);
   if (!product) return;
 
   const overlay = document.getElementById("fiche-overlay");
@@ -137,26 +155,13 @@ function closeFiche() {
   document.body.style.overflow = "";
 }
 
-function setupRevealObserver() {
-  const items = document.querySelectorAll(".reveal, .product-card");
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("is-visible");
-          observer.unobserve(entry.target);
-        }
-      });
-    },
-    { threshold: 0.12 }
-  );
-  items.forEach((el) => observer.observe(el));
-}
+async function initApp() {
+  await DB.seedIfEmpty();
 
-function initApp() {
   renderTicker();
-  renderGrid();
-  setupRevealObserver();
+  await renderGrid();
+
+  observeReveal(document.querySelectorAll(".reveal:not(.product-card)"));
 
   const overlay = document.getElementById("fiche-overlay");
   overlay.addEventListener("click", (e) => {
