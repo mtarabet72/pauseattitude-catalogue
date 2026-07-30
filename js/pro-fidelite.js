@@ -1,14 +1,26 @@
-// pro-fidelite.js — Espace Pro : points de fidélité par client et
-// tirage au sort de la tombola (pondéré par nombre de tickets).
+// pro-fidelite.js — Espace Pro : points de fidélité, gestion des lots
+// (avec image) et tombola sous forme de roue tournante pondérée par stock.
 
 const POINTS_PAR_TICKET = 100;
+const WHEEL_COLORS = ["#3C8A3E", "#D64545", "#F2C14E", "#B9793F", "#4A4785", "#3F7EA6", "#D9603B", "#2C6B2E"];
 
 function ticketsFor(points) {
   return Math.floor((points || 0) / POINTS_PAR_TICKET);
 }
 
+function blankLot() {
+  return { id: crypto.randomUUID(), nom: "", quantite: 1, image: "" };
+}
+
+function polarPoint(cx, cy, r, angleDeg) {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) };
+}
+
 const ProFideliteView = (() => {
   let viewRef = null;
+  let currentRotation = 0;
+  let pendingLotImage = "";
 
   async function render(view) {
     viewRef = view;
@@ -17,67 +29,108 @@ const ProFideliteView = (() => {
 
   async function draw() {
     const view = viewRef;
-    const [clients, tirages] = await Promise.all([
+    const [clients, tirages, lots] = await Promise.all([
       DB.getAll(DB.STORES.clients),
       DB.getAll(DB.STORES.tirages),
+      DB.getAll(DB.STORES.lots),
     ]);
     clients.sort((a, b) => (b.points || 0) - (a.points || 0));
     tirages.sort((a, b) => new Date(b.date) - new Date(a.date));
+    lots.sort((a, b) => (a.nom || "").localeCompare(b.nom || "", "fr"));
 
     const eligibles = clients.filter((c) => ticketsFor(c.points) >= 1);
+    const lotsDisponibles = lots.filter((l) => (l.quantite || 0) > 0);
 
     view.innerHTML = `
       <div class="pro-card" style="margin-bottom:20px">
         <h3 style="font-family:var(--font-heading);font-size:14px;font-weight:600;margin-bottom:6px">Points de fidélité</h3>
         <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 14px">${POINTS_PAR_TICKET} points = 1 ticket de tombola. Ajoutez des points après une commande.</p>
-
         ${
           clients.length === 0
             ? `<p style="font-size:13px;color:var(--ink-soft)">Aucun client. Créez d'abord des fiches clients dans l'onglet <a href="#/clients" style="color:var(--leaf-dark)">Clients &amp; tarifs</a>.</p>`
             : `<table class="pro-table">
                 <thead><tr><th>Client</th><th>Points</th><th>Tickets</th><th></th></tr></thead>
+                <tbody>${clients.map(clientRowTemplate).join("")}</tbody>
+              </table>`
+        }
+      </div>
+
+      <div class="pro-card" style="margin-bottom:20px">
+        <h3 style="font-family:var(--font-heading);font-size:14px;font-weight:600;margin-bottom:6px">Lots disponibles</h3>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 14px">Ajoutez une image par lot — elle apparaîtra sur la roue. Un lot à 0 en stock disparaît de la roue.</p>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+          <div id="lot-image-preview" style="width:44px;height:44px;border-radius:8px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:10px;color:var(--ink-soft);text-align:center">image</div>
+          <label class="pro-btn" style="cursor:pointer;margin:0">
+            📷 Image
+            <input type="file" id="lot-image-input" accept="image/*" style="display:none" />
+          </label>
+          <input id="lot-nom" type="text" placeholder="Nom du lot (ex. Sandwich offert)" style="flex:1;min-width:180px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13.5px" />
+          <input id="lot-qte" type="number" min="1" value="1" placeholder="Stock" style="width:80px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13.5px" />
+          <button class="pro-btn pro-btn-primary" id="btn-add-lot">+ Ajouter</button>
+        </div>
+
+        ${
+          lots.length === 0
+            ? `<p style="font-size:13px;color:var(--ink-soft);margin:0">Aucun lot enregistré.</p>`
+            : `<table class="pro-table">
+                <thead><tr><th></th><th>Lot</th><th>Stock restant</th><th></th></tr></thead>
                 <tbody>
-                  ${clients.map(clientRowTemplate).join("")}
+                  ${lots
+                    .map(
+                      (l) => `
+                    <tr>
+                      <td>${l.image ? `<img src="${l.image}" style="width:32px;height:32px;object-fit:cover;border-radius:6px" />` : "—"}</td>
+                      <td>${escapeHtml(l.nom)}</td>
+                      <td style="font-family:var(--font-mono)" data-lot-stock="${l.id}">${l.quantite}</td>
+                      <td style="text-align:right"><button class="pro-btn pro-btn-danger" data-del-lot="${l.id}">Supprimer</button></td>
+                    </tr>
+                  `
+                    )
+                    .join("")}
                 </tbody>
               </table>`
         }
       </div>
 
       <div class="pro-card" style="margin-bottom:20px">
-        <h3 style="font-family:var(--font-heading);font-size:14px;font-weight:600;margin-bottom:6px">Tombola</h3>
-        <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 14px">
+        <h3 style="font-family:var(--font-heading);font-size:14px;font-weight:600;margin-bottom:6px">Roue de la tombola</h3>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 16px">
           ${eligibles.length} client${eligibles.length > 1 ? "s" : ""} éligible${eligibles.length > 1 ? "s" : ""}
           (≥ 1 ticket) — ${eligibles.reduce((s, c) => s + ticketsFor(c.points), 0)} tickets au total.
         </p>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <input id="tombola-lot" type="text" placeholder="Lot à gagner (ex. Sandwich offert x5)" style="flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13.5px" />
-          <button class="pro-btn pro-btn-primary" id="btn-tirer" ${eligibles.length === 0 ? "disabled" : ""}>🎲 Lancer le tirage</button>
-        </div>
-        <div id="tombola-result" style="margin-top:16px"></div>
+
+        ${
+          lotsDisponibles.length === 0
+            ? `<p style="font-size:13px;color:var(--ink-soft)">Ajoutez au moins un lot en stock pour activer la roue.</p>`
+            : `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:18px">
+              <div style="position:relative;width:260px;height:260px">
+                <div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%);z-index:2;font-size:26px;line-height:1">🔻</div>
+                <div id="wheel-rotor" style="width:260px;height:260px;transition:transform 4s cubic-bezier(.15,.65,.15,1);transform:rotate(${currentRotation}deg)">
+                  ${wheelSVG(lotsDisponibles)}
+                </div>
+              </div>
+              <button class="pro-btn pro-btn-primary" id="btn-tirer" ${eligibles.length === 0 ? "disabled" : ""} style="font-size:15px;padding:12px 26px">🎡 Lancer la roue</button>
+            </div>
+            <div id="tombola-result" style="margin-top:18px"></div>
+          `
+        }
       </div>
 
-      <div class="pro-card">
+      <div class="pro-card" id="historique-card">
         <h3 style="font-family:var(--font-heading);font-size:14px;font-weight:600;margin-bottom:10px">Historique des tirages</h3>
-        ${
-          tirages.length === 0
-            ? `<p style="font-size:13px;color:var(--ink-soft);margin:0">Aucun tirage effectué pour l'instant.</p>`
-            : `<table class="pro-table">
-                <thead><tr><th>Date</th><th>Gagnant</th><th>Lot</th></tr></thead>
-                <tbody>
-                  ${tirages.map((t) => `<tr><td>${new Date(t.date).toLocaleString("fr-FR")}</td><td>${escapeHtml(t.gagnant)}</td><td>${escapeHtml(t.lot || "—")}</td></tr>`).join("")}
-                </tbody>
-              </table>`
-        }
+        ${historiqueTableHTML(tirages)}
       </div>
     `;
 
+    // --- Points ---
     view.querySelectorAll("[data-add-points]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.addPoints;
         const input = view.querySelector(`[data-points-input="${id}"]`);
         const amount = parseInt(input.value, 10);
         if (!amount || amount <= 0) return;
-
         const client = await DB.get(DB.STORES.clients, id);
         client.points = (client.points || 0) + amount;
         await DB.put(DB.STORES.clients, client);
@@ -85,7 +138,82 @@ const ProFideliteView = (() => {
       });
     });
 
-    view.querySelector("#btn-tirer")?.addEventListener("click", () => runTirage(eligibles));
+    // --- Upload image du lot ---
+    view.querySelector("#lot-image-input")?.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      pendingLotImage = await resizeImageToDataURL(file, 160);
+      view.querySelector("#lot-image-preview").innerHTML = `<img src="${pendingLotImage}" style="width:100%;height:100%;object-fit:cover" />`;
+    });
+
+    // --- Ajout / suppression de lots ---
+    view.querySelector("#btn-add-lot").addEventListener("click", async () => {
+      const nom = view.querySelector("#lot-nom").value.trim();
+      const qte = parseInt(view.querySelector("#lot-qte").value, 10);
+      if (!nom || !qte || qte <= 0) return;
+      await DB.put(DB.STORES.lots, { ...blankLot(), nom, quantite: qte, image: pendingLotImage });
+      pendingLotImage = "";
+      await draw();
+    });
+
+    view.querySelectorAll("[data-del-lot]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (confirm("Supprimer ce lot ?")) {
+          await DB.delete(DB.STORES.lots, btn.dataset.delLot);
+          await draw();
+        }
+      });
+    });
+
+    view.querySelector("#btn-tirer")?.addEventListener("click", () => spinWheel(eligibles, lotsDisponibles));
+  }
+
+  function wheelSVG(lots) {
+    const n = lots.length;
+    const segAngle = 360 / n;
+    const cx = 130, cy = 130, R = 128;
+
+    const wedges = lots
+      .map((lot, i) => {
+        const a1 = i * segAngle;
+        const a2 = (i + 1) * segAngle;
+        const p1 = polarPoint(cx, cy, R, a1);
+        const p2 = polarPoint(cx, cy, R, a2);
+        const largeArc = segAngle > 180 ? 1 : 0;
+        const color = WHEEL_COLORS[i % WHEEL_COLORS.length];
+        const mid = (a1 + a2) / 2;
+        const imgPos = polarPoint(cx, cy, R * 0.62, mid);
+        const imgSize = Math.min(46, (segAngle / 360) * R * 2.1);
+        const image = lot.image
+          ? `<image href="${lot.image}" x="${imgPos.x - imgSize / 2}" y="${imgPos.y - imgSize / 2}" width="${imgSize}" height="${imgSize}" clip-path="circle(${imgSize / 2}px at ${imgSize / 2}px ${imgSize / 2}px)" />`
+          : "";
+        return `
+          <path d="M${cx},${cy} L${p1.x},${p1.y} A${R},${R} 0 ${largeArc} 1 ${p2.x},${p2.y} Z" fill="${color}" stroke="#fff" stroke-width="2" />
+          ${image}
+        `;
+      })
+      .join("");
+
+    return `
+      <svg viewBox="0 0 260 260" width="260" height="260">
+        ${wedges}
+        <circle cx="${cx}" cy="${cy}" r="20" fill="#fff" stroke="var(--ink)" stroke-width="2" />
+      </svg>
+    `;
+  }
+
+  function historiqueTableHTML(tirages) {
+    if (tirages.length === 0) {
+      return `<p style="font-size:13px;color:var(--ink-soft);margin:0">Aucun tirage effectué pour l'instant.</p>`;
+    }
+    return `
+      <table class="pro-table">
+        <thead><tr><th>Date</th><th>Gagnant</th><th>Lot</th></tr></thead>
+        <tbody>
+          ${tirages.map((t) => `<tr><td>${new Date(t.date).toLocaleString("fr-FR")}</td><td>${escapeHtml(t.gagnant)}</td><td>${escapeHtml(t.lot || "—")}</td></tr>`).join("")}
+        </tbody>
+      </table>
+    `;
   }
 
   function clientRowTemplate(c) {
@@ -104,59 +232,81 @@ const ProFideliteView = (() => {
     `;
   }
 
-  async function runTirage(eligibles) {
-    const view = viewRef;
-    const lot = view.querySelector("#tombola-lot").value.trim();
+  // Choisit un lot pondéré par son stock restant (plus de stock = plus de chances)
+  function pickWeightedLot(lots) {
+    const pool = [];
+    lots.forEach((l, i) => {
+      for (let k = 0; k < (l.quantite || 0); k++) pool.push(i);
+    });
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
 
-    // Pool pondéré : chaque client apparaît autant de fois que son nombre de tickets
+  async function spinWheel(eligibles, lotsDisponibles) {
+    const view = viewRef;
+    const rotor = view.querySelector("#wheel-rotor");
+    const n = lotsDisponibles.length;
+    const segAngle = 360 / n;
+
+    const winningIndex = pickWeightedLot(lotsDisponibles);
+    const lot = lotsDisponibles[winningIndex];
+    const mid = winningIndex * segAngle + segAngle / 2;
+    const jitter = (Math.random() - 0.5) * segAngle * 0.6;
+
+    // Rotation nécessaire pour amener le milieu du segment gagnant sous le repère (haut = 0°)
+    const needed = ((360 - mid + jitter) % 360 + 360) % 360;
+    currentRotation += 5 * 360 + needed - (currentRotation % 360);
+
+    view.querySelector("#btn-tirer").disabled = true;
+    const resultEl = view.querySelector("#tombola-result");
+    resultEl.innerHTML = `<p style="font-size:13.5px;color:var(--ink-soft);text-align:center">La roue tourne…</p>`;
+
+    rotor.style.transform = `rotate(${currentRotation}deg)`;
+
+    await new Promise((resolve) => {
+      const onEnd = () => {
+        rotor.removeEventListener("transitionend", onEnd);
+        resolve();
+      };
+      rotor.addEventListener("transitionend", onEnd);
+    });
+
     const pool = [];
     eligibles.forEach((c) => {
       for (let i = 0; i < ticketsFor(c.points); i++) pool.push(c);
     });
-
-    const resultEl = view.querySelector("#tombola-result");
-    resultEl.innerHTML = `<p style="font-size:13.5px;color:var(--ink-soft)">Tirage en cours…</p>`;
-
-    // Petit effet de suspense avant de révéler le résultat
-    await new Promise((r) => setTimeout(r, 700));
-
     const winner = pool[Math.floor(Math.random() * pool.length)];
 
-    const tirage = {
+    const tirageRecord = {
       id: crypto.randomUUID(),
       date: new Date().toISOString(),
       gagnant: winner.nom,
       gagnantId: winner.id,
-      lot,
+      lot: lot.nom,
+      lotId: lot.id,
     };
-    await DB.put(DB.STORES.tirages, tirage);
+    await DB.put(DB.STORES.tirages, tirageRecord);
+
+    lot.quantite = Math.max(0, (lot.quantite || 0) - 1);
+    await DB.put(DB.STORES.lots, lot);
+
+    const stockCell = view.querySelector(`[data-lot-stock="${lot.id}"]`);
+    if (stockCell) stockCell.textContent = lot.quantite;
 
     resultEl.innerHTML = `
       <div style="background:var(--paper);border-radius:10px;padding:16px;text-align:center">
-        <div style="font-size:12.5px;color:var(--ink-soft)">🎉 Gagnant</div>
-        <div style="font-family:var(--font-display);font-size:26px;color:var(--tomato);margin-top:4px">${escapeHtml(winner.nom)}</div>
-        ${lot ? `<div style="font-size:13.5px;margin-top:6px">${escapeHtml(lot)}</div>` : ""}
-        <p style="font-size:12px;color:var(--ink-soft);margin:10px 0 0">Enregistré dans l'historique ci-dessous.</p>
+        <div style="font-size:12.5px;color:var(--ink-soft)">🎉 La roue s'arrête sur</div>
+        <div style="font-family:var(--font-display);font-size:22px;color:var(--tomato);margin-top:4px">${escapeHtml(lot.nom)}</div>
+        <div style="font-size:12.5px;color:var(--ink-soft);margin-top:6px">Gagné par</div>
+        <div style="font-family:var(--font-heading);font-weight:600;font-size:17px">${escapeHtml(winner.nom)}</div>
       </div>
     `;
 
-    const newHistoryRow = `<tr><td>${new Date(tirage.date).toLocaleString("fr-FR")}</td><td>${escapeHtml(tirage.gagnant)}</td><td>${escapeHtml(tirage.lot || "—")}</td></tr>`;
-    const historyBody = view.querySelector(".pro-card:last-child tbody");
-    if (historyBody) {
-      historyBody.insertAdjacentHTML("afterbegin", newHistoryRow);
-    } else {
-      // première entrée d'historique : on doit reconstruire ce bloc
-      const historyCard = view.querySelectorAll(".pro-card")[2];
-      if (historyCard) {
-        historyCard.innerHTML = `
-          <h3 style="font-family:var(--font-heading);font-size:14px;font-weight:600;margin-bottom:10px">Historique des tirages</h3>
-          <table class="pro-table">
-            <thead><tr><th>Date</th><th>Gagnant</th><th>Lot</th></tr></thead>
-            <tbody>${newHistoryRow}</tbody>
-          </table>
-        `;
-      }
-    }
+    const tirages = await DB.getAll(DB.STORES.tirages);
+    tirages.sort((a, b) => new Date(b.date) - new Date(a.date));
+    document.getElementById("historique-card").innerHTML = `
+      <h3 style="font-family:var(--font-heading);font-size:14px;font-weight:600;margin-bottom:10px">Historique des tirages</h3>
+      ${historiqueTableHTML(tirages)}
+    `;
   }
 
   return { render };
