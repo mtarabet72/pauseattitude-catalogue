@@ -127,7 +127,7 @@ function ficheHTML(product) {
     </div>
 
     <div class="fiche-footer">
-      <a class="btn-cta primary" href="#contact">Commander</a>
+      <a class="btn-cta primary" href="pro.html?article=${encodeURIComponent(product.id)}#/commandes">Commander</a>
     </div>
   `;
 }
