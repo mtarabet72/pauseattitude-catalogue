@@ -21,6 +21,12 @@ async function initPro() {
   );
 
   ProRouter.register(
+    "/commandes",
+    { title: "Commandes", subtitle: "Préparez et suivez les commandes de vos clients." },
+    ProCommandesView.render
+  );
+
+  ProRouter.register(
     "/clients",
     { title: "Clients & tarifs", subtitle: "Fiches clients et paliers de prix négociés par quantité." },
     ProClientsView.render
