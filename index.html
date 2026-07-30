@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Pause Attitude — Nos sandwiches frais du jour</title>
+<meta name="description" content="Découvrez la carte Pause Attitude : sandwiches frais préparés chaque jour à Tanger, ingrédients, allergènes et valeurs nutritionnelles." />
+<meta name="theme-color" content="#3C8A3E" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="css/fiche.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-brand" href="#top">
+      <img src="icons/brand-mark.png" alt="Pause Attitude" />
+      <span>Pause Attitude</span>
+    </a>
+    <nav class="topbar-nav">
+      <a href="#produits">Nos produits</a>
+      <a href="#apropos">À propos</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div>
+      <span class="hero-eyebrow">● Frais du jour · Tanger</span>
+      <h1>Votre pause,<br /><span class="accent">en mieux.</span></h1>
+      <p class="lead">Sept recettes de pains garnis faits maison, préparés chaque matin et livrés dans vos points de vente avant 10h. Commandez avant 14h, savourez le lendemain.</p>
+      <div class="hero-ctas">
+        <a class="btn-cta primary" href="#produits">Voir la carte</a>
+        <a class="btn-cta ghost" href="#contact">Nous contacter</a>
+      </div>
+    </div>
+    <div class="hero-photo-wrap">
+      <div class="hero-photo-card">
+        <img src="https://pauseattitude.ma/wp-content/uploads/2025/06/blanc-club.jpg" alt="Sandwich Pause Attitude" />
+        <span class="hero-tag">100% fresh natural*</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track" id="ticker-track"></div>
+  </div>
+
+  <section class="section" id="produits">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">La carte</span>
+        <h2>Nos sandwiches</h2>
+        <p>Une recette pour chaque envie — cliquez sur une fiche pour voir ingrédients, allergènes et valeurs nutritionnelles complètes.</p>
+      </div>
+      <div class="product-grid" id="product-grid"></div>
+    </div>
+  </section>
+
+  <section class="section" id="apropos">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">À propos</span>
+        <h2>Frais, sain, local</h2>
+        <p>
+          Nous sélectionnons nos fournisseurs sur des critères stricts : productions régionales, circuits courts,
+          ingrédients purs et sains. Nos pains garnis sont préparés et livrés le jour même, dans un packaging
+          pratique qui protège vos produits jusqu'au point de vente.
+        </p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer" id="contact">
+  <strong>Pause Attitude</strong><br />
+  10 Comp Roukaya Imm.10, Ét.1 N142 — 90000 Tanger<br />
+  info@pauseattitude.be · <a href="https://pauseattitude.ma">pauseattitude.ma</a>
+  <br /><br />
+  <span style="font-size:12px;opacity:0.7">* Prix affichés à titre d'exemple — à confirmer avec Pause Attitude.</span>
+</footer>
+
+<div class="fiche-overlay" id="fiche-overlay" aria-hidden="true">
+  <div class="fiche-card"></div>
+</div>
+
+<script src="js/products.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
