@@ -29,10 +29,7 @@ async function initPro() {
   ProRouter.register(
     "/fidelite",
     { title: "Fidélité & tombola", subtitle: "Points de fidélité et tirage au sort." },
-    comingSoon(
-      "Bientôt disponible",
-      "Suivi des points de fidélité par client et tirage au sort de la tombola — prochaine étape."
-    )
+    ProFideliteView.render
   );
 
   ProRouter.register(
