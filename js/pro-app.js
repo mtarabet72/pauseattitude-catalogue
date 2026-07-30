@@ -23,10 +23,7 @@ async function initPro() {
   ProRouter.register(
     "/clients",
     { title: "Clients & tarifs", subtitle: "Fiches clients et paliers de prix négociés par quantité." },
-    comingSoon(
-      "Bientôt disponible",
-      "Fiche client et grille de tarifs dégressifs (ex. 20-29 unités → prix négocié) — prochaine étape."
-    )
+    ProClientsView.render
   );
 
   ProRouter.register(
