@@ -12,11 +12,13 @@
   overflow-y: auto;
   z-index: 100;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.2s ease;
 }
 
 .fiche-overlay.is-open {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .fiche-card {
