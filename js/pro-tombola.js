@@ -57,8 +57,20 @@ const ProTombolaView = (() => {
                   ${wheelSVG(lotsDisponibles)}
                 </div>
               </div>
-              <button class="pro-btn pro-btn-primary" id="btn-tirer" ${eligibles.length === 0 ? "disabled" : ""} style="font-size:15px;padding:12px 26px">🎡 Lancer la roue</button>
+              <button class="pro-btn pro-btn-primary" id="btn-tirer" ${eligibles.length === 0 ? "disabled" : ""} style="font-size:15px;padding:12px 26px">🎡 Tirage au hasard</button>
               ${eligibles.length === 0 ? `<p style="font-size:12px;color:var(--ink-soft);margin:0">Aucun client n'a encore de ticket (100 points).</p>` : ""}
+
+              <div style="width:100%;max-width:360px;border-top:1px solid var(--line);margin-top:6px;padding-top:16px">
+                <p style="font-size:12px;color:var(--ink-soft);margin:0 0 8px;text-align:center">Ou désigner directement le gagnant :</p>
+                <div style="display:flex;gap:8px">
+                  <select id="client-manuel" style="flex:1;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px" ${eligibles.length === 0 ? "disabled" : ""}>
+                    ${eligibles.length === 0
+                      ? `<option>Aucun client éligible</option>`
+                      : eligibles.map((c) => `<option value="${c.id}">${escapeHtml(c.nom)} (${tombolaTicketsFor(c.points)} 🎟️)</option>`).join("")}
+                  </select>
+                  <button class="pro-btn" id="btn-designer" ${eligibles.length === 0 ? "disabled" : ""}>✅ Désigner</button>
+                </div>
+              </div>
             </div>
             <div id="tombola-result" style="margin-top:18px"></div>
           `
@@ -72,6 +84,11 @@ const ProTombolaView = (() => {
     `;
 
     view.querySelector("#btn-tirer")?.addEventListener("click", () => spinWheel(eligibles, lotsDisponibles));
+    view.querySelector("#btn-designer")?.addEventListener("click", () => {
+      const clientId = view.querySelector("#client-manuel").value;
+      const client = eligibles.find((c) => c.id === clientId);
+      if (client) spinWheel(eligibles, lotsDisponibles, client);
+    });
   }
 
   function wheelSVG(lots) {
@@ -133,7 +150,7 @@ const ProTombolaView = (() => {
     return lots.length - 1;
   }
 
-  async function spinWheel(eligibles, lotsDisponibles) {
+  async function spinWheel(eligibles, lotsDisponibles, forcedWinner) {
     const view = viewRef;
     const rotor = view.querySelector("#wheel-rotor");
     const n = lotsDisponibles.length;
@@ -148,6 +165,7 @@ const ProTombolaView = (() => {
     currentRotation += 5 * 360 + needed - (currentRotation % 360);
 
     view.querySelector("#btn-tirer").disabled = true;
+    if (view.querySelector("#btn-designer")) view.querySelector("#btn-designer").disabled = true;
     const resultEl = view.querySelector("#tombola-result");
     resultEl.innerHTML = `<p style="font-size:13.5px;color:var(--ink-soft);text-align:center">La roue tourne…</p>`;
 
@@ -161,11 +179,14 @@ const ProTombolaView = (() => {
       rotor.addEventListener("transitionend", onEnd);
     });
 
-    const pool = [];
-    eligibles.forEach((c) => {
-      for (let i = 0; i < tombolaTicketsFor(c.points); i++) pool.push(c);
-    });
-    const winner = pool[Math.floor(Math.random() * pool.length)];
+    let winner = forcedWinner;
+    if (!winner) {
+      const pool = [];
+      eligibles.forEach((c) => {
+        for (let i = 0; i < tombolaTicketsFor(c.points); i++) pool.push(c);
+      });
+      winner = pool[Math.floor(Math.random() * pool.length)];
+    }
 
     winner.points = Math.max(0, (winner.points || 0) - TOMBOLA_POINTS_PAR_TICKET);
     await DB.put(DB.STORES.clients, winner);
@@ -173,7 +194,7 @@ const ProTombolaView = (() => {
     const tirageRecord = {
       id: crypto.randomUUID(),
       date: new Date().toISOString(),
-      gagnant: winner.nom,
+      gagnant: winner.nom + (forcedWinner ? " (désigné)" : ""),
       gagnantId: winner.id,
       lot: lot.nom,
       lotId: lot.id,
