@@ -1,0 +1,141 @@
+/* rapport.css — Mise en page des rapports PDF (via impression navigateur). */
+
+.rapport-print-area {
+  display: none;
+}
+
+.rapport-page {
+  width: 210mm;
+  padding: 16mm;
+  box-sizing: border-box;
+  font-family: "Karla", sans-serif;
+  color: #23291f;
+  background: #fff;
+}
+
+.rapport-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 2px solid #23291f;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.rapport-header h1 {
+  font-family: "Fredoka", sans-serif;
+  font-size: 21px;
+  margin: 0;
+}
+
+.rapport-header .brand {
+  font-size: 11px;
+  color: #5a5648;
+  margin-top: 2px;
+}
+
+.rapport-header .date {
+  font-size: 11px;
+  color: #5a5648;
+  text-align: right;
+}
+
+.rapport-stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.rapport-stat {
+  flex: 1;
+  border: 1px solid #e6ddc8;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.rapport-stat .label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #5a5648;
+}
+
+.rapport-stat .value {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 17px;
+  font-weight: 600;
+  margin-top: 3px;
+}
+
+.rapport-section-title {
+  font-family: "Fredoka", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.rapport-chart {
+  margin-bottom: 24px;
+  border: 1px solid #e6ddc8;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.rapport-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+.rapport-table th {
+  text-align: left;
+  background: #f2ede0;
+  padding: 6px 8px;
+  border-bottom: 1px solid #23291f;
+  font-family: "Fredoka", sans-serif;
+}
+
+.rapport-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e6ddc8;
+}
+
+.rapport-footer {
+  margin-top: 22px;
+  font-size: 9px;
+  color: #9a9488;
+  text-align: center;
+}
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .rapport-print-area,
+  .rapport-print-area * {
+    visibility: visible;
+  }
+
+  .rapport-print-area {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: auto;
+  }
+
+  .rapport-page {
+    page-break-after: always;
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+}
