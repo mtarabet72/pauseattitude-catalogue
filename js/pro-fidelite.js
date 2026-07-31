@@ -9,7 +9,7 @@ function ticketsFor(points) {
 }
 
 function blankLot() {
-  return { id: crypto.randomUUID(), nom: "", quantite: 1, image: "", poids: 1 };
+  return { id: crypto.randomUUID(), nom: "", quantite: 1, image: "", chance: 25 };
 }
 
 function polarPoint(cx, cy, r, angleDeg) {
@@ -90,27 +90,25 @@ const ProFideliteView = (() => {
           </label>
           <input id="lot-nom" type="text" placeholder="Nom du lot (ex. Sandwich offert)" style="flex:1;min-width:180px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13.5px" />
           <input id="lot-qte" type="number" min="1" value="1" placeholder="Stock" style="width:80px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13.5px" />
-          <input id="lot-poids" type="number" min="0.1" step="0.1" value="1" placeholder="Poids" title="Poids relatif : plus il est grand, plus le lot a de chances de sortir à la roue" style="width:80px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13.5px" />
+          <input id="lot-poids" type="number" min="1" max="100" step="1" value="25" placeholder="% chance" title="Pourcentage de chance de gagner ce lot à la roue" style="width:80px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13.5px" />
           <button class="pro-btn pro-btn-primary" id="btn-add-lot">+ Ajouter</button>
         </div>
-        <p style="font-size:11.5px;color:var(--ink-soft);margin:0 0 14px">Le <strong>poids</strong> définit la fraction de chances de gagner ce lot (indépendant du stock) — un lot à poids 2 a deux fois plus de chances qu'un lot à poids 1.</p>
+        <p style="font-size:11.5px;color:var(--ink-soft);margin:0 0 14px">Le commercial saisit directement le <strong>% de chance</strong> de gagner ce lot. La roue affiche des portions de taille égale, mais les probabilités réelles suivent ces pourcentages.</p>
 
         ${
           lots.length === 0
             ? `<p style="font-size:13px;color:var(--ink-soft);margin:0">Aucun lot enregistré.</p>`
             : `<table class="pro-table">
-                <thead><tr><th></th><th>Lot</th><th>Stock restant</th><th>Fraction</th><th></th></tr></thead>
+                <thead><tr><th></th><th>Lot</th><th>Stock restant</th><th>Chance</th><th></th></tr></thead>
                 <tbody>
                   ${lots
                     .map((l) => {
-                      const totalPoids = lotsDisponibles.reduce((s, x) => s + (x.poids || 1), 0) || 1;
-                      const pct = (l.quantite || 0) > 0 ? (((l.poids || 1) / totalPoids) * 100).toFixed(0) : "0";
                       return `
                     <tr>
                       <td>${l.image ? `<img src="${l.image}" style="width:32px;height:32px;object-fit:cover;border-radius:6px" />` : "—"}</td>
                       <td>${escapeHtml(l.nom)}</td>
                       <td style="font-family:var(--font-mono)" data-lot-stock="${l.id}">${l.quantite}</td>
-                      <td style="font-family:var(--font-mono)">${pct}%</td>
+                      <td style="font-family:var(--font-mono)">${l.chance || 0}%</td>
                       <td style="text-align:right"><button class="pro-btn pro-btn-danger" data-del-lot="${l.id}">Supprimer</button></td>
                     </tr>
                   `;
@@ -178,9 +176,9 @@ const ProFideliteView = (() => {
     view.querySelector("#btn-add-lot").addEventListener("click", async () => {
       const nom = view.querySelector("#lot-nom").value.trim();
       const qte = parseInt(view.querySelector("#lot-qte").value, 10);
-      const poids = parseFloat(view.querySelector("#lot-poids").value) || 1;
+      const chance = parseFloat(view.querySelector("#lot-poids").value) || 1;
       if (!nom || !qte || qte <= 0) return;
-      await DB.put(DB.STORES.lots, { ...blankLot(), nom, quantite: qte, image: pendingLotImage, poids });
+      await DB.put(DB.STORES.lots, { ...blankLot(), nom, quantite: qte, image: pendingLotImage, chance });
       pendingLotImage = "";
       await draw();
     });
@@ -197,34 +195,24 @@ const ProFideliteView = (() => {
     view.querySelector("#btn-tirer")?.addEventListener("click", () => spinWheel(eligibles, lotsDisponibles));
   }
 
-  // Calcule les bornes angulaires [début, fin] de chaque lot, proportionnelles à son poids
-  function computeSegments(lots) {
-    const total = lots.reduce((s, l) => s + (l.poids || 1), 0) || 1;
-    let acc = 0;
-    return lots.map((l) => {
-      const span = ((l.poids || 1) / total) * 360;
-      const seg = { a1: acc, a2: acc + span, lot: l };
-      acc += span;
-      return seg;
-    });
-  }
-
   function wheelSVG(lots) {
-    const segments = computeSegments(lots);
+    const n = lots.length;
+    const segAngle = 360 / n;
     const cx = 130, cy = 130, R = 128;
 
-    const wedges = segments
-      .map((seg, i) => {
-        const p1 = polarPoint(cx, cy, R, seg.a1);
-        const p2 = polarPoint(cx, cy, R, seg.a2);
-        const span = seg.a2 - seg.a1;
-        const largeArc = span > 180 ? 1 : 0;
+    const wedges = lots
+      .map((lot, i) => {
+        const a1 = i * segAngle;
+        const a2 = (i + 1) * segAngle;
+        const p1 = polarPoint(cx, cy, R, a1);
+        const p2 = polarPoint(cx, cy, R, a2);
+        const largeArc = segAngle > 180 ? 1 : 0;
         const color = WHEEL_COLORS[i % WHEEL_COLORS.length];
-        const mid = (seg.a1 + seg.a2) / 2;
+        const mid = (a1 + a2) / 2;
         const imgPos = polarPoint(cx, cy, R * 0.62, mid);
-        const imgSize = Math.min(46, (span / 360) * R * 2.1);
-        const image = seg.lot.image
-          ? `<image href="${seg.lot.image}" x="${imgPos.x - imgSize / 2}" y="${imgPos.y - imgSize / 2}" width="${imgSize}" height="${imgSize}" clip-path="circle(${imgSize / 2}px at ${imgSize / 2}px ${imgSize / 2}px)" />`
+        const imgSize = Math.min(46, (segAngle / 360) * R * 2.1);
+        const image = lot.image
+          ? `<image href="${lot.image}" x="${imgPos.x - imgSize / 2}" y="${imgPos.y - imgSize / 2}" width="${imgSize}" height="${imgSize}" clip-path="circle(${imgSize / 2}px at ${imgSize / 2}px ${imgSize / 2}px)" />`
           : "";
         return `
           <path d="M${cx},${cy} L${p1.x},${p1.y} A${R},${R} 0 ${largeArc} 1 ${p2.x},${p2.y} Z" fill="${color}" stroke="#fff" stroke-width="2" />
@@ -271,12 +259,13 @@ const ProFideliteView = (() => {
     `;
   }
 
-  // Choisit un lot pondéré par son poids/fraction (indépendant du stock restant)
+  // Choisit un lot selon le % de chance saisi par le commercial (invisible sur la roue,
+  // qui affiche toujours des portions égales)
   function pickWeightedLot(lots) {
-    const total = lots.reduce((s, l) => s + (l.poids || 1), 0) || 1;
+    const total = lots.reduce((s, l) => s + (l.chance || 1), 0) || 1;
     let r = Math.random() * total;
     for (let i = 0; i < lots.length; i++) {
-      r -= lots[i].poids || 1;
+      r -= lots[i].chance || 1;
       if (r <= 0) return i;
     }
     return lots.length - 1;
@@ -285,13 +274,13 @@ const ProFideliteView = (() => {
   async function spinWheel(eligibles, lotsDisponibles) {
     const view = viewRef;
     const rotor = view.querySelector("#wheel-rotor");
+    const n = lotsDisponibles.length;
+    const segAngle = 360 / n;
 
     const winningIndex = pickWeightedLot(lotsDisponibles);
     const lot = lotsDisponibles[winningIndex];
-    const segments = computeSegments(lotsDisponibles);
-    const seg = segments[winningIndex];
-    const mid = (seg.a1 + seg.a2) / 2;
-    const jitter = (Math.random() - 0.5) * (seg.a2 - seg.a1) * 0.6;
+    const mid = winningIndex * segAngle + segAngle / 2;
+    const jitter = (Math.random() - 0.5) * segAngle * 0.6;
 
     // Rotation nécessaire pour amener le milieu du segment gagnant sous le repère (haut = 0°)
     const needed = ((360 - mid + jitter) % 360 + 360) % 360;
