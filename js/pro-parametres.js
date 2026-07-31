@@ -60,11 +60,24 @@ const ProParametresView = (() => {
         </div>
 
         <div class="pro-card">
-          <h3 style="font-family:var(--font-heading);font-size:14px;font-weight:600;margin-bottom:6px">Rapports (export CSV, ouvrables dans Excel)</h3>
+          <h3 style="font-family:var(--font-heading);font-size:14px;font-weight:600;margin-bottom:6px">Rapports</h3>
+          <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 14px">PDF : mise en page avec indicateurs et graphiques (via l'impression du navigateur — choisissez "Enregistrer en PDF" comme imprimante). CSV : pour Excel.</p>
           <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
-            <button class="pro-btn" id="btn-export-commandes" style="justify-content:flex-start">🧾 Rapport Commandes — Article / Quantité / PUV / Total / Statut</button>
-            <button class="pro-btn" id="btn-export-clients" style="justify-content:flex-start">👤 Relevé Clients détaillé</button>
-            <button class="pro-btn" id="btn-export-tombola" style="justify-content:flex-start">🎡 Rapport Tombola</button>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span style="flex:1;font-size:13px;min-width:200px">🧾 Rapport Commandes</span>
+              <button class="pro-btn pro-btn-primary" id="btn-pdf-commandes">📄 PDF</button>
+              <button class="pro-btn" id="btn-export-commandes">⬇ CSV</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span style="flex:1;font-size:13px;min-width:200px">👤 Relevé Clients détaillé</span>
+              <button class="pro-btn pro-btn-primary" id="btn-pdf-clients">📄 PDF</button>
+              <button class="pro-btn" id="btn-export-clients">⬇ CSV</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span style="flex:1;font-size:13px;min-width:200px">🎡 Rapport Tombola</span>
+              <button class="pro-btn pro-btn-primary" id="btn-pdf-tombola">📄 PDF</button>
+              <button class="pro-btn" id="btn-export-tombola">⬇ CSV</button>
+            </div>
           </div>
         </div>
 
@@ -117,6 +130,21 @@ const ProParametresView = (() => {
       await DB.seedIfEmpty();
       alert("Toutes les données ont été réinitialisées. Les articles de départ ont été restaurés.");
       render(view);
+    });
+
+    view.querySelector("#btn-pdf-commandes").addEventListener("click", async () => {
+      const list = await DB.getAll(DB.STORES.commandes);
+      printReport(buildCommandesReportHTML(list));
+    });
+
+    view.querySelector("#btn-pdf-clients").addEventListener("click", async () => {
+      const [list, commandesList] = await Promise.all([DB.getAll(DB.STORES.clients), DB.getAll(DB.STORES.commandes)]);
+      printReport(buildClientsReportHTML(list, commandesList));
+    });
+
+    view.querySelector("#btn-pdf-tombola").addEventListener("click", async () => {
+      const [list, lots] = await Promise.all([DB.getAll(DB.STORES.tirages), DB.getAll(DB.STORES.lots)]);
+      printReport(buildTombolaReportHTML(list, lots));
     });
 
     view.querySelector("#btn-export-commandes").addEventListener("click", async () => {
