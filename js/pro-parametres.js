@@ -134,17 +134,17 @@ const ProParametresView = (() => {
 
     view.querySelector("#btn-pdf-commandes").addEventListener("click", async () => {
       const list = await DB.getAll(DB.STORES.commandes);
-      printReport(buildCommandesReportHTML(list));
+      printReport(buildCommandesReportHTML(list), "Rapport Commandes");
     });
 
     view.querySelector("#btn-pdf-clients").addEventListener("click", async () => {
       const [list, commandesList] = await Promise.all([DB.getAll(DB.STORES.clients), DB.getAll(DB.STORES.commandes)]);
-      printReport(buildClientsReportHTML(list, commandesList));
+      printReport(buildClientsReportHTML(list, commandesList), "Relevé Clients");
     });
 
     view.querySelector("#btn-pdf-tombola").addEventListener("click", async () => {
       const [list, lots] = await Promise.all([DB.getAll(DB.STORES.tirages), DB.getAll(DB.STORES.lots)]);
-      printReport(buildTombolaReportHTML(list, lots));
+      printReport(buildTombolaReportHTML(list, lots), "Rapport Tombola");
     });
 
     view.querySelector("#btn-export-commandes").addEventListener("click", async () => {
