@@ -34,8 +34,20 @@ async function initPro() {
 
   ProRouter.register(
     "/fidelite",
-    { title: "Fidélité & tombola", subtitle: "Points de fidélité et tirage au sort." },
+    { title: "Fidélité", subtitle: "Points de fidélité par client." },
     ProFideliteView.render
+  );
+
+  ProRouter.register(
+    "/lots",
+    { title: "Lots", subtitle: "Gérez les lots proposés à la tombola (image, stock, % de chance)." },
+    ProLotsView.render
+  );
+
+  ProRouter.register(
+    "/tombola",
+    { title: "Tombola", subtitle: "La roue et l'historique des tirages." },
+    ProTombolaView.render
   );
 
   ProRouter.register(
