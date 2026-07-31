@@ -7,6 +7,8 @@ const STATUTS = {
   rejetee: { label: "Rejetée", color: "#D64545" },
 };
 
+const POINTS_PAR_SANDWICH = 5;
+
 function blankCommande() {
   return {
     id: crypto.randomUUID(),
@@ -20,7 +22,21 @@ function blankCommande() {
     statut: "en_cours",
     notes: "",
     date: new Date().toISOString(),
+    pointsAttribues: false,
   };
+}
+
+// Crédite les points de fidélité (5 par sandwich) une seule fois par commande,
+// au moment où elle passe (ou est créée) au statut "Livrée".
+async function crediterPointsSiLivree(commande) {
+  if (commande.statut !== "livree" || commande.pointsAttribues || !commande.clientId) return commande;
+
+  const client = await DB.get(DB.STORES.clients, commande.clientId);
+  if (client) {
+    client.points = (client.points || 0) + commande.quantite * POINTS_PAR_SANDWICH;
+    await DB.put(DB.STORES.clients, client);
+  }
+  return { ...commande, pointsAttribues: true };
 }
 
 const ProCommandesView = (() => {
@@ -83,8 +99,9 @@ const ProCommandesView = (() => {
     );
     view.querySelectorAll("[data-statut]").forEach((select) => {
       select.addEventListener("change", async () => {
-        const commande = await DB.get(DB.STORES.commandes, select.dataset.statut);
+        let commande = await DB.get(DB.STORES.commandes, select.dataset.statut);
         commande.statut = select.value;
+        commande = await crediterPointsSiLivree(commande);
         await DB.put(DB.STORES.commandes, commande);
         await renderList(view);
       });
@@ -103,6 +120,7 @@ const ProCommandesView = (() => {
           <select data-statut="${c.id}" style="border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px;background:${STATUTS[c.statut]?.color}22">
             ${Object.entries(STATUTS).map(([key, s]) => `<option value="${key}" ${c.statut === key ? "selected" : ""}>${s.label}</option>`).join("")}
           </select>
+          ${c.pointsAttribues ? `<div style="font-size:10.5px;color:var(--leaf-dark);margin-top:3px">✓ +${c.quantite * POINTS_PAR_SANDWICH} pts</div>` : ""}
         </td>
         <td style="text-align:right;white-space:nowrap">
           <button class="pro-btn" data-modifier="${c.id}">Modifier</button>
@@ -227,7 +245,8 @@ const ProCommandesView = (() => {
         notes: fd.get("notes").trim(),
       };
 
-      await DB.put(DB.STORES.commandes, updated);
+      const withPoints = await crediterPointsSiLivree(updated);
+      await DB.put(DB.STORES.commandes, withPoints);
       await renderList(view);
     });
   }
