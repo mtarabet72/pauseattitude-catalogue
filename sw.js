@@ -1,5 +1,5 @@
 // Service worker — Pause Attitude · Catalogue
-const CACHE_VERSION = "pa-catalogue-v10";
+const CACHE_VERSION = "pa-catalogue-v11";
 const APP_SHELL = [
   "./",
   "./index.html",
