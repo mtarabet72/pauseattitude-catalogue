@@ -253,16 +253,72 @@ function buildTombolaReportHTML(tirages, lots) {
   `;
 }
 
-function printReport(html) {
-  let container = document.getElementById("rapport-print-area");
-  if (!container) {
-    container = document.createElement("div");
-    container.id = "rapport-print-area";
-    container.className = "rapport-print-area";
-    document.body.appendChild(container);
+const RAPPORT_CSS_INLINE = `
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e6e2d8; font-family: 'Karla', sans-serif; padding: 16px 0; }
+  .rapport-page {
+    width: 210mm;
+    min-height: 200mm;
+    padding: 16mm;
+    margin: 0 auto 16px;
+    box-sizing: border-box;
+    font-family: 'Karla', sans-serif;
+    color: #23291f;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,.15);
   }
-  container.innerHTML = html;
-  setTimeout(() => window.print(), 50);
+  .rapport-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #23291f; padding-bottom: 10px; margin-bottom: 20px; }
+  .rapport-header h1 { font-family: 'Fredoka', sans-serif; font-size: 21px; margin: 0; }
+  .rapport-header .brand { font-size: 11px; color: #5a5648; margin-top: 2px; }
+  .rapport-header .date { font-size: 11px; color: #5a5648; text-align: right; }
+  .rapport-stats { display: flex; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+  .rapport-stat { flex: 1; min-width: 100px; border: 1px solid #e6ddc8; border-radius: 8px; padding: 10px 12px; }
+  .rapport-stat .label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .03em; color: #5a5648; }
+  .rapport-stat .value { font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 600; margin-top: 3px; }
+  .rapport-section-title { font-family: 'Fredoka', sans-serif; font-size: 13px; font-weight: 600; margin: 0 0 10px; }
+  .rapport-chart { margin-bottom: 24px; border: 1px solid #e6ddc8; border-radius: 8px; padding: 14px; overflow-x:auto }
+  .rapport-table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  .rapport-table th { text-align: left; background: #f2ede0; padding: 6px 8px; border-bottom: 1px solid #23291f; font-family: 'Fredoka', sans-serif; }
+  .rapport-table td { padding: 6px 8px; border-bottom: 1px solid #e6ddc8; }
+  .rapport-footer { margin-top: 22px; font-size: 9px; color: #9a9488; text-align: center; }
+  .print-toolbar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: center; gap: 10px; padding: 10px; background: #23291f; }
+  .print-toolbar button { font-family: 'Fredoka', sans-serif; font-weight: 600; font-size: 14px; padding: 10px 18px; border-radius: 999px; border: none; cursor: pointer; }
+  .print-toolbar .go { background: #D64545; color: #fff; }
+  .print-toolbar .close { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4); }
+  @media print {
+    .print-toolbar { display: none; }
+    body { background: #fff; padding: 0; }
+    .rapport-page { box-shadow: none; margin: 0; page-break-after: always; }
+    @page { size: A4; margin: 0; }
+  }
+`;
+
+function printReport(html, title) {
+  const win = window.open("", "_blank");
+  if (!win) {
+    alert("Le navigateur a bloqué l'ouverture du rapport. Autorisez les fenêtres pop-up pour ce site puis réessayez.");
+    return;
+  }
+
+  win.document.open();
+  win.document.write(`
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+      <meta charset="utf-8" />
+      <title>${title || "Rapport"} — Pause Attitude</title>
+      <style>${RAPPORT_CSS_INLINE}</style>
+    </head>
+    <body>
+      <div class="print-toolbar">
+        <button class="go" onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+        <button class="close" onclick="window.close()">Fermer</button>
+      </div>
+      ${html}
+    </body>
+    </html>
+  `);
+  win.document.close();
 }
 
 window.printReport = printReport;
