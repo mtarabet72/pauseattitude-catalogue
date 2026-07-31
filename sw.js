@@ -1,5 +1,5 @@
 // Service worker — Pause Attitude · Catalogue
-const CACHE_VERSION = "pa-catalogue-v14";
+const CACHE_VERSION = "pa-catalogue-v15";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -18,6 +18,7 @@ const APP_SHELL = [
   "./js/pro-fidelite.js",
   "./js/pro-lots.js",
   "./js/pro-tombola.js",
+  "./js/pro-parametres.js",
   "./js/pro-app.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
