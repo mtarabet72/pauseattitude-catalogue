@@ -59,6 +59,12 @@ async function initPro() {
     )
   );
 
+  ProRouter.register(
+    "/parametres",
+    { title: "Paramètres", subtitle: "Sauvegarde, restauration, réinitialisation et rapports." },
+    ProParametresView.render
+  );
+
   ProRouter.start();
 }
 
